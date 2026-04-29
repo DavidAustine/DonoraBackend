@@ -29,6 +29,7 @@ app.use("/api/match", require("./routes/matchRoutes"));
 app.use("/api/requests", require("./routes/requestRoutes"));
 app.use("/api/sos", require("./routes/sosRoutes"));
 app.use("/api/notifications", require("./routes/notificationRoutes"));
+app.use("/api/speech", require("./routes/speechRoutes"));
 
 const errorHandler = require("./middleware/errorMiddleware");
 app.use(errorHandler);
