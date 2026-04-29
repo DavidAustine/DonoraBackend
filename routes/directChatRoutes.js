@@ -12,4 +12,7 @@ router.get("/thread/:otherId", verifyJWT, directChatController.getOrCreateThread
 // Get messages for a specific thread
 router.get("/:threadId/messages", verifyJWT, directChatController.getThreadMessages);
 
+// Send a message to a specific thread
+router.post("/:threadId/messages", verifyJWT, directChatController.sendThreadMessage);
+
 module.exports = router;

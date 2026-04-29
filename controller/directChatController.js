@@ -25,7 +25,7 @@ const getOrCreateThread = async (req, res, next) => {
           participantKey,
         },
       },
-      { upsert: true, new: true, setDefaultsOnInsert: true },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
     ).populate("participants", "firstname surname role");
 
     res.json(convo);
@@ -34,12 +34,11 @@ const getOrCreateThread = async (req, res, next) => {
     // a millisecond ago. Just fetch and return it.
     if (err.code === 11000) {
       try {
-        const participantKey = [req.user.id, req.params.otherId]
-          .sort()
-          .join("|");
-        const convo = await DirectConversation.findOne({
-          participantKey,
-        }).populate("participants", "firstname surname role");
+        const participantKey = [req.user.id, req.params.otherId].sort().join("|");
+        const convo = await DirectConversation.findOne({ participantKey }).populate(
+          "participants",
+          "firstname surname role"
+        );
         if (convo) return res.json(convo);
       } catch (_) {}
     }
@@ -111,4 +110,45 @@ const getMyThreads = async (req, res, next) => {
   }
 };
 
-module.exports = { getOrCreateThread, getThreadMessages, getMyThreads };
+const sendThreadMessage = async (req, res, next) => {
+  try {
+    const { threadId } = req.params;
+    const { message } = req.body;
+
+    if (!message) {
+      return res.status(400).json({ message: "message is required" });
+    }
+
+    const convo = await DirectConversation.findById(threadId);
+    if (!convo) {
+      return res.status(404).json({ message: "Conversation not found" });
+    }
+
+    const isParticipant = convo.participants.some(
+      (p) => p.toString() === req.user.id,
+    );
+    if (!isParticipant) {
+      return res.status(403).json({ message: "Unauthorized" });
+    }
+
+    const newMessage = await ChatMessage.create({
+      match: threadId,
+      sender: req.user.id,
+      message,
+    });
+
+    await newMessage.populate("sender", "firstname surname");
+
+    // Update lastMessage snapshot so the thread list shows the preview
+    await DirectConversation.findByIdAndUpdate(threadId, {
+      lastMessage: { message, createdAt: newMessage.createdAt },
+      updatedAt: new Date(),
+    });
+
+    res.status(201).json(newMessage);
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = { getOrCreateThread, getThreadMessages, getMyThreads, sendThreadMessage };
