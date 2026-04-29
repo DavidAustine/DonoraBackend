@@ -212,7 +212,7 @@ const getNearbyBloodBanks = async (req, res, next) => {
         },
       },
     })
-      .select("name phone location isVerified")
+      .select("name phone location isVerified user availableTypes address")
       .limit(20);
 
     res.json(banks);
