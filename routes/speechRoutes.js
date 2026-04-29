@@ -1,8 +1,8 @@
-import axios from "axios";
-import express from "express";
-import FormData from "form-data";
-import fs from "fs";
-import multer from "multer";
+const express = require("express");
+const axios = require("axios");
+const FormData = require("form-data");
+const fs = require("fs");
+const multer = require("multer");
 
 const router = express.Router();
 const upload = multer({ dest: "uploads/" });
@@ -31,9 +31,7 @@ router.post("/transcribe", upload.single("audio"), async (req, res) => {
     console.log(err);
     res.status(500).json({ error: "Transcription failed" });
   } finally {
-    if (req.file?.path) {
-      fs.unlink(req.file.path, () => {});
-    }
+    if (req.file?.path) fs.unlink(req.file.path, () => {});
   }
 });
 
