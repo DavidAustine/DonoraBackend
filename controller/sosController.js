@@ -1,194 +1,187 @@
-const SOSAlert = require('../model/SOSAlert')
-const User = require('../model/User')
-const BloodBank = require('../model/BloodBank')
-const Match = require('../model/Match')
-const PatientRequest = require('../model/PatientRequest')
-const notify = require('../utils/notify')
+const SOSAlert = require("../model/SOSAlert");
+const User = require("../model/User");
+const BloodBank = require("../model/BloodBank");
+const Match = require("../model/Match");
+const PatientRequest = require("../model/PatientRequest");
+const notify = require("../utils/notify");
 
-// CREATE SOS — alerts blood banks only (not donors)
-// FIX: was querying User.location for blood banks, which is almost always empty
-// because blood banks set their location in the BloodBank collection at
-// registration (authController.handleRegister), not in User. Switched to
-// querying BloodBank.location which has a required 2dsphere index.
 const createSOS = async (req, res, next) => {
   try {
-    const { lng, lat, unitsNeeded = 1, bloodType } = req.body
+    const { lng, lat, unitsNeeded = 1, bloodType } = req.body;
 
-    if (!lng || !lat) return res.status(400).json({ message: 'Location required' })
+    if (!lng || !lat)
+      return res.status(400).json({ message: "Location required" });
 
-    const patient = await User.findById(req.user.id).select('bloodType')
-    const effectiveBloodType = bloodType || patient?.bloodType
+    const patient = await User.findById(req.user.id).select("bloodType");
+    const effectiveBloodType = bloodType || patient?.bloodType;
 
     const sos = await SOSAlert.create({
       patient: req.user.id,
-      location: { type: 'Point', coordinates: [parseFloat(lng), parseFloat(lat)] },
+      location: {
+        type: "Point",
+        coordinates: [parseFloat(lng), parseFloat(lat)],
+      },
       bloodType: effectiveBloodType,
       unitsNeeded: parseInt(unitsNeeded) || 1,
-    })
+    });
 
-    // ✅ FIXED: query BloodBank collection directly — it has required coordinates
-    // and a proper 2dsphere index. User.location is sparse and often missing
-    // for blood bank accounts.
     const nearbyBloodBanks = await BloodBank.find({
       location: {
         $near: {
           $geometry: {
-            type: 'Point',
+            type: "Point",
             coordinates: [parseFloat(lng), parseFloat(lat)],
           },
-          $maxDistance: 10000, // 10km
+          $maxDistance: 10000,
         },
       },
-    }).select('_id user name phone')
+    }).select("_id user name phone");
 
-    const io = req.app.get('io')
+    const io = req.app.get("io");
 
-    // Notify each blood bank via their user socket room + persistent notification
     for (const bb of nearbyBloodBanks) {
-      io?.to(bb.user.toString()).emit('newSOS', {
+      io?.to(bb.user.toString()).emit("newSOS", {
         sosId: sos._id,
         bloodType: effectiveBloodType,
         unitsNeeded,
         patientId: req.user.id,
         location: sos.location,
-      })
+      });
 
-      // Persist notification so it shows in their notification list
       await notify(
         io,
         bb.user,
-        'system',
-        '🚨 Emergency SOS Alert',
+        "system",
+        "🚨 Emergency SOS Alert",
         `Patient needs ${effectiveBloodType} blood — ${unitsNeeded} unit(s). Tap to respond.`,
-        sos._id
-      )
+        sos._id,
+      );
     }
 
     res.status(201).json({
       message: `SOS sent to ${nearbyBloodBanks.length} nearby blood bank(s)`,
       sos,
-      nearbyBloodBanks: nearbyBloodBanks.map(bb => ({
+      nearbyBloodBanks: nearbyBloodBanks.map((bb) => ({
         id: bb._id,
         userId: bb.user,
         name: bb.name,
         phone: bb.phone,
       })),
       nearbyCount: nearbyBloodBanks.length,
-    })
+    });
   } catch (err) {
-    next(err)
+    next(err);
   }
-}
-
-// BLOOD BANK ACCEPTS SOS — creates a match and returns match details
+};a
 const acceptSOS = async (req, res, next) => {
   try {
-    const { sosId } = req.body
+    const { sosId } = req.body;
 
-    if (req.user.role !== 'bloodbank') {
-      return res.status(403).json({ message: 'Only blood banks can accept SOS alerts' })
+    if (req.user.role !== "bloodbank") {
+      return res
+        .status(403)
+        .json({ message: "Only blood banks can accept SOS alerts" });
     }
 
-    const sos = await SOSAlert.findById(sosId)
-    if (!sos) return res.status(404).json({ message: 'SOS not found' })
-    if (sos.status !== 'active') return res.status(400).json({ message: 'SOS already resolved' })
+    const sos = await SOSAlert.findById(sosId);
+    if (!sos) return res.status(404).json({ message: "SOS not found" });
+    if (sos.status !== "active")
+      return res.status(400).json({ message: "SOS already resolved" });
 
     const emergencyRequest = await PatientRequest.create({
       patient: sos.patient,
-      requiredBloodType: sos.bloodType || 'O+',
+      requiredBloodType: sos.bloodType || "O+",
       unitsNeeded: sos.unitsNeeded || 1,
       location: sos.location,
-      status: 'matched',
+      status: "matched",
       acceptedBy: req.user.id,
       isEmergency: true,
-    })
+    });
 
     const match = await Match.create({
       request: emergencyRequest._id,
       participants: [sos.patient, req.user.id],
-      type: 'bloodbank',
-      status: 'active',
-    })
+      type: "bloodbank",
+      status: "active",
+    });
 
-    sos.status = 'resolved'
-    sos.acceptedBy = req.user.id
-    sos.matchId = match._id
-    await sos.save()
+    sos.status = "resolved";
+    sos.acceptedBy = req.user.id;
+    sos.matchId = match._id;
+    await sos.save();
 
-    const io = req.app.get('io')
+    const io = req.app.get("io");
 
-    // Real-time socket event to patient
-    io?.to(sos.patient.toString()).emit('sosAccepted', {
+    io?.to(sos.patient.toString()).emit("sosAccepted", {
       matchId: match._id,
       bloodBankUserId: req.user.id,
-      message: 'A blood bank has accepted your SOS!',
-    })
+      message: "A blood bank has accepted your SOS!",
+    });
 
-    // Persistent notification to patient
     await notify(
       io,
       sos.patient,
-      'sos_match',
-      '✅ SOS Accepted',
-      'A nearby blood bank has responded to your emergency. Open Matches to chat.',
-      match._id
-    )
+      "sos_match",
+      "✅ SOS Accepted",
+      "A nearby blood bank has responded to your emergency. Open Matches to chat.",
+      match._id,
+    );
 
     res.json({
-      message: 'SOS accepted',
+      message: "SOS accepted",
       matchId: match._id,
       requestId: emergencyRequest._id,
-    })
+    });
   } catch (err) {
-    next(err)
+    next(err);
   }
-}
+};
 
 const resolveSOS = async (req, res, next) => {
   try {
     const sos = await SOSAlert.findOneAndUpdate(
       { _id: req.params.id, patient: req.user.id },
-      { status: 'resolved' },
-      { new: true }
-    )
-    if (!sos) return res.status(404).json({ message: 'SOS not found' })
-    res.json({ message: 'SOS resolved' })
+      { status: "resolved" },
+      { new: true },
+    );
+    if (!sos) return res.status(404).json({ message: "SOS not found" });
+    res.json({ message: "SOS resolved" });
   } catch (err) {
-    next(err)
+    next(err);
   }
-}
+};
 
 const getMySOS = async (req, res, next) => {
   try {
     const alerts = await SOSAlert.find({ patient: req.user.id })
       .sort({ createdAt: -1 })
-      .populate('acceptedBy', 'firstname surname')
-    res.json(alerts)
+      .populate("acceptedBy", "firstname surname");
+    res.json(alerts);
   } catch (err) {
-    next(err)
+    next(err);
   }
-}
+};
 
 const getSOSMatch = async (req, res, next) => {
   try {
-    const { matchId } = req.params
+    const { matchId } = req.params;
     const match = await Match.findById(matchId)
-      .populate('request')
-      .populate('participants', 'firstname surname role location phone')
-    if (!match) return res.status(404).json({ message: 'Match not found' })
-    if (!match.participants.some(p => p._id.toString() === req.user.id))
-      return res.status(403).json({ message: 'Unauthorized' })
+      .populate("request")
+      .populate("participants", "firstname surname role location phone");
+    if (!match) return res.status(404).json({ message: "Match not found" });
+    if (!match.participants.some((p) => p._id.toString() === req.user.id))
+      return res.status(403).json({ message: "Unauthorized" });
 
-    const bbUser = match.participants.find(p => p.role === 'bloodbank')
-    let bloodBankDetails = null
+    const bbUser = match.participants.find((p) => p.role === "bloodbank");
+    let bloodBankDetails = null;
     if (bbUser) {
-      bloodBankDetails = await BloodBank.findOne({ user: bbUser._id })
+      bloodBankDetails = await BloodBank.findOne({ user: bbUser._id });
     }
 
-    res.json({ match, bloodBank: bloodBankDetails })
+    res.json({ match, bloodBank: bloodBankDetails });
   } catch (err) {
-    next(err)
+    next(err);
   }
-}
+};
 
-module.exports = { createSOS, acceptSOS, resolveSOS, getMySOS, getSOSMatch }
+module.exports = { createSOS, acceptSOS, resolveSOS, getMySOS, getSOSMatch };

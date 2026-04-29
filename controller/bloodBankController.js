@@ -3,7 +3,6 @@ const BloodBank = require("../model/BloodBank");
 const PatientRequest = require("../model/PatientRequest");
 const Match = require("../model/Match");
 
-// ─── UPDATE STOCK ─────────────────────────────────────────────────────────────
 const updateStock = async (req, res, next) => {
   try {
     const { bloodType, units } = req.body;
@@ -39,7 +38,6 @@ const updateStock = async (req, res, next) => {
   }
 };
 
-// ─── GET MY STOCK ─────────────────────────────────────────────────────────────
 const getMyStock = async (req, res, next) => {
   try {
     const bloodBankProfile = await BloodBank.findOne({ user: req.user.id });
@@ -54,7 +52,6 @@ const getMyStock = async (req, res, next) => {
   }
 };
 
-// ─── FULFILL REQUEST ──────────────────────────────────────────────────────────
 const fulfillRequest = async (req, res, next) => {
   try {
     const bloodBank = await BloodBank.findOne({ user: req.user.id });
@@ -105,7 +102,6 @@ const fulfillRequest = async (req, res, next) => {
   }
 };
 
-// ─── ACCEPT PATIENT REQUEST ───────────────────────────────────────────────────
 const acceptPatientRequest = async (req, res, next) => {
   try {
     const bloodBank = await BloodBank.findOne({ user: req.user.id });
@@ -119,7 +115,7 @@ const acceptPatientRequest = async (req, res, next) => {
         acceptedBy: req.user.id,
         targetBloodBank: bloodBank._id,
       },
-      { new: true }
+      { new: true },
     );
 
     if (!request)
@@ -133,7 +129,6 @@ const acceptPatientRequest = async (req, res, next) => {
       type: "bloodbank",
     });
 
-    // Real-time notification to patient
     const io = req.app.get("io");
     if (io) {
       io.to(request.patient.toString()).emit("requestAccepted", {
@@ -150,7 +145,6 @@ const acceptPatientRequest = async (req, res, next) => {
   }
 };
 
-// ─── GET MY BLOOD BANK ────────────────────────────────────────────────────────
 const getMyBloodBank = async (req, res, next) => {
   try {
     const bloodBank = await BloodBank.findOne({ user: req.user.id });
@@ -163,7 +157,6 @@ const getMyBloodBank = async (req, res, next) => {
   }
 };
 
-// ─── UPDATE MY BLOOD BANK ─────────────────────────────────────────────────────
 const updateMyBloodBank = async (req, res, next) => {
   try {
     const { name, phone } = req.body;
@@ -174,7 +167,7 @@ const updateMyBloodBank = async (req, res, next) => {
     const updated = await BloodBank.findOneAndUpdate(
       { user: req.user.id },
       { $set: updates },
-      { new: true, runValidators: true }
+      { new: true, runValidators: true },
     );
 
     if (!updated) {
@@ -186,9 +179,6 @@ const updateMyBloodBank = async (req, res, next) => {
   }
 };
 
-// ─── GET NEARBY BLOOD BANKS (public) ─────────────────────────────────────────
-// GET /bloodbank/nearby?lng=&lat=&radius=
-// Called by patient mobile "Blood Bank" tab and web app map.
 const getNearbyBloodBanks = async (req, res, next) => {
   try {
     const { lng, lat, radius = 10 } = req.query;

@@ -2,7 +2,6 @@ const User = require("../model/User");
 const DonorProfile = require("../model/DonorProfile");
 
 const BloodBank = require("../model/BloodBank");
-// GET MY PROFILE
 
 const getMyProfile = async (req, res, next) => {
   try {
@@ -29,7 +28,6 @@ const getMyProfile = async (req, res, next) => {
   }
 };
 
-// GET PUBLIC PROFILE OF ANY USER (for "view user" page)
 const getUserProfile = async (req, res, next) => {
   try {
     const user = await User.findById(req.params.id).select(
@@ -50,7 +48,6 @@ const getUserProfile = async (req, res, next) => {
   }
 };
 
-// UPDATE PROFILE
 const updateMyProfile = async (req, res, next) => {
   try {
     const { firstname, surname, phone, bloodType, age } = req.body;
@@ -75,7 +72,6 @@ const updateMyProfile = async (req, res, next) => {
   }
 };
 
-// UPDATE LIVE LOCATION
 const updateLocation = async (req, res, next) => {
   try {
     const { lng, lat } = req.body;

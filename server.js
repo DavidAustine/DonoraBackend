@@ -65,7 +65,6 @@ mongoose.connection.once("open", () => {
     socket.join(socket.user.id);
     console.log("User connected:", socket.user.id);
 
-    // ── Join rooms ─────────────────────────────────────────────────────────
     socket.on("joinMatch", (matchId) => {
       socket.join(matchId);
     });
@@ -74,7 +73,6 @@ mongoose.connection.once("open", () => {
       socket.join(`direct_${threadId}`);
     });
 
-    // ── Match-based chat ───────────────────────────────────────────────────
     socket.on("sendMessage", async ({ matchId, message }) => {
       const Match = require("./model/Match");
       const ChatMessage = require("./model/ChatMessage");
@@ -120,7 +118,6 @@ mongoose.connection.once("open", () => {
       }
     });
 
-    // ── Direct chat (donor ↔ blood bank, no match required) ────────────────
     socket.on("sendDirectMessage", async ({ threadId, message }) => {
       const DirectConversation = require("./model/DirectConversation");
       const ChatMessage = require("./model/ChatMessage");
@@ -171,7 +168,6 @@ mongoose.connection.once("open", () => {
       }
     });
 
-    // ── Real-time location update ───────────────────────────────────────────
     socket.on("updateLocation", async ({ lng, lat }) => {
       const User = require("./model/User");
       if (!lng || !lat) return;

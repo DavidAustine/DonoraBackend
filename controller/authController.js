@@ -156,7 +156,6 @@ const handleRegister = async (req, res, next) => {
       });
     }
 
-    //Donor
     if (userRole === "donor") {
       await DonorProfile.create({
         user: newUser._id,
@@ -269,17 +268,14 @@ const handleForgotPassword = async (req, res, next) => {
     const user = await User.findOne({ email });
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    // Generate 6-digit OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
-    // Hash OTP before storing
     const hashedOTP = crypto.createHash("sha256").update(otp).digest("hex");
 
     user.resetPasswordToken = hashedOTP;
-    user.resetPasswordExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
+    user.resetPasswordExpires = Date.now() + 10 * 60 * 1000;
     await user.save();
 
-    // Send OTP email
     await sendOTPEmail(email, otp);
 
     if (process.env.NODE_ENV !== "production") console.log("OTP:", otp);
@@ -301,24 +297,19 @@ const handleResetPassword = async (req, res, next) => {
     const user = await User.findOne({ email });
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    // Hash incoming OTP to compare
     const hashedOTP = crypto.createHash("sha256").update(otp).digest("hex");
 
-    // Check OTP match
     if (user.resetPasswordToken !== hashedOTP) {
       return res.status(400).json({ message: "Invalid OTP" });
     }
 
-    // Check expiry
     if (user.resetPasswordExpires < Date.now()) {
       return res.status(400).json({ message: "OTP expired" });
     }
 
-    // Hash new password
     const hashedPassword = await bcrypt.hash(newPassword, 10);
     user.password = hashedPassword;
 
-    // Clear OTP fields
     user.resetPasswordToken = undefined;
     user.resetPasswordExpires = undefined;
 

@@ -1,7 +1,6 @@
 const PatientRequest = require("../model/PatientRequest");
 const User = require("../model/User");
 
-// CREATE REQUEST (patient)
 const createRequest = async (req, res, next) => {
   try {
     const {
@@ -47,21 +46,15 @@ const createRequest = async (req, res, next) => {
   }
 };
 
-// GET MY REQUESTS
-// FIX: now handles donor role too (was patient-only which caused silent 403s
-// in the mobile request tab for donors). Donors see requests where they are
-// the acceptedBy party — i.e. requests they have matched with.
 const getMyRequests = async (req, res, next) => {
   try {
     if (req.user.role === "donor" || req.user.role == "bloodbank") {
-      // Donors see requests they have accepted / are matched with
       const requests = await PatientRequest.find({
         acceptedBy: req.user.id,
       }).sort({ createdAt: -1 });
       return res.json(requests);
     }
 
-    // Patients see their own requests
     const requests = await PatientRequest.find({
       patient: req.user.id,
     }).sort({ createdAt: -1 });
@@ -72,7 +65,6 @@ const getMyRequests = async (req, res, next) => {
   }
 };
 
-// CANCEL REQUEST (patient)
 const cancelRequest = async (req, res, next) => {
   try {
     const request = await PatientRequest.findOne({
@@ -91,7 +83,6 @@ const cancelRequest = async (req, res, next) => {
   }
 };
 
-// GET NEARBY REQUESTS (bloodbank)
 const getNearbyRequests = async (req, res, next) => {
   try {
     const { lng, lat, radius = 10 } = req.query;

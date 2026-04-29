@@ -2,12 +2,6 @@ const DirectConversation = require("../model/DirectConversation");
 const ChatMessage = require("../model/ChatMessage");
 const mongoose = require("mongoose");
 
-/**
- * GET /chat/direct/thread/:otherId
- * ---------------------------------
- * Find or create a DirectConversation between the current user and otherId.
- * Returns the conversation object (with _id usable as matchId in the chat UI).
- */
 const getOrCreateThread = async (req, res, next) => {
   try {
     const meId = req.user.id;
@@ -17,33 +11,42 @@ const getOrCreateThread = async (req, res, next) => {
       return res.status(400).json({ message: "Invalid user id" });
     }
 
-    // Look for existing conversation with both participants
-    let convo = await DirectConversation.findOne({
-      participants: { $all: [meId, otherId], $size: 2 },
-    }).populate("participants", "firstname surname role");
+    // Build the same canonical key the model's pre-save hook would produce.
+    // Using findOneAndUpdate with upsert makes this atomic — no race window
+    // where two simultaneous requests can both pass the findOne check and
+    // both call create(), producing duplicate threads.
+    const participantKey = [meId, otherId].sort().join("|");
 
-    if (!convo) {
-      convo = await DirectConversation.create({
-        participants: [meId, otherId],
-      });
-      convo = await DirectConversation.findById(convo._id).populate(
-        "participants",
-        "firstname surname role"
-      );
-    }
+    let convo = await DirectConversation.findOneAndUpdate(
+      { participantKey },
+      {
+        $setOnInsert: {
+          participants: [meId, otherId],
+          participantKey,
+        },
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true },
+    ).populate("participants", "firstname surname role");
 
     res.json(convo);
   } catch (err) {
+    // E11000 duplicate key — another request already created the thread
+    // a millisecond ago. Just fetch and return it.
+    if (err.code === 11000) {
+      try {
+        const participantKey = [req.user.id, req.params.otherId]
+          .sort()
+          .join("|");
+        const convo = await DirectConversation.findOne({
+          participantKey,
+        }).populate("participants", "firstname surname role");
+        if (convo) return res.json(convo);
+      } catch (_) {}
+    }
     next(err);
   }
 };
 
-/**
- * GET /chat/direct/:threadId/messages
- * -------------------------------------
- * Get all messages for a DirectConversation thread.
- * Reuses ChatMessage — messages whose `match` field equals the threadId.
- */
 const getThreadMessages = async (req, res, next) => {
   try {
     const { threadId } = req.params;
@@ -54,7 +57,7 @@ const getThreadMessages = async (req, res, next) => {
     }
 
     const isParticipant = convo.participants.some(
-      (p) => p.toString() === req.user.id
+      (p) => p.toString() === req.user.id,
     );
     if (!isParticipant) {
       return res.status(403).json({ message: "Unauthorized" });
@@ -70,12 +73,6 @@ const getThreadMessages = async (req, res, next) => {
   }
 };
 
-/**
- * GET /chat/direct/my-threads
- * ----------------------------
- * List all DirectConversation threads for the current user,
- * with the last message populated.
- */
 const getMyThreads = async (req, res, next) => {
   try {
     const BloodBank = require("../model/BloodBank");
@@ -86,26 +83,26 @@ const getMyThreads = async (req, res, next) => {
       .populate("participants", "firstname surname role")
       .sort({ updatedAt: -1 });
 
-    // Enrich blood-bank participants with their bank name
     const enriched = await Promise.all(
       threads.map(async (t) => {
         const obj = t.toObject();
         obj.participants = await Promise.all(
           obj.participants.map(async (p) => {
             if (p.role === "bloodbank") {
-              const bb = await BloodBank.findOne({ user: p._id }).select("name");
+              const bb = await BloodBank.findOne({ user: p._id }).select(
+                "name",
+              );
               if (bb) p.name = bb.name;
             }
             return p;
-          })
+          }),
         );
-        // Attach last message
         const last = await ChatMessage.findOne({ match: t._id }).sort({
           createdAt: -1,
         });
         if (last) obj.lastMessage = last;
         return obj;
-      })
+      }),
     );
 
     res.json(enriched);
