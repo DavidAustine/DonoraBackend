@@ -72,7 +72,7 @@ const createSOS = async (req, res, next) => {
   } catch (err) {
     next(err);
   }
-};a
+};
 const acceptSOS = async (req, res, next) => {
   try {
     const { sosId } = req.body;
