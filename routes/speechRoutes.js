@@ -37,4 +37,4 @@ router.post("/transcribe", upload.single("audio"), async (req, res) => {
   }
 });
 
-export default router;
+module.exports = router;
