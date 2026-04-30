@@ -28,8 +28,11 @@ router.post("/transcribe", upload.single("audio"), async (req, res) => {
 
     res.json({ text: response.data.text });
   } catch (err) {
-    console.log(err);
-    res.status(500).json({ error: "Transcription failed" });
+    console.log("Whisper error:", err.response?.data || err.message);
+    res.status(500).json({
+      error: "Transcription failed",
+      detail: err.response?.data || err.message, // remove this line after debugging
+    });
   } finally {
     if (req.file?.path) fs.unlink(req.file.path, () => {});
   }
