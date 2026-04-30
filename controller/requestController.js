@@ -40,6 +40,18 @@ const createRequest = async (req, res, next) => {
       isEmergency: isEmergency || false,
     });
 
+    // ── Broadcast emergency to all connected clients (web blood bank dashboards) ──
+    if (newRequest.isEmergency) {
+      const io = req.app.get("io");
+      if (io) {
+        io.emit("emergencyRequest", {
+          _id: newRequest._id,
+          requiredBloodType: newRequest.requiredBloodType,
+          unitsNeeded: newRequest.unitsNeeded,
+        });
+      }
+    }
+
     res.status(201).json(newRequest);
   } catch (err) {
     next(err);
