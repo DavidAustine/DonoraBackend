@@ -39,16 +39,16 @@ router.post(
       const form = new FormData();
       form.append("file", fs.createReadStream(filePath), {
         filename: "recording.m4a",
-        contentType: "audio/m4a",
       });
       form.append("model", "whisper-1");
 
+      console.log("OPENAI KEY EXISTS:", !!process.env.OPENAI_API_KEY);
       const response = await axios.post(
         "https://api.openai.com/v1/audio/transcriptions",
         form,
         {
           headers: {
-            Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+            Authorization: `Bearer ${process.env.OPENAI_SECRET_KEY}`,
             ...form.getHeaders(),
           },
           maxBodyLength: Infinity,
@@ -58,8 +58,13 @@ router.post(
 
       res.json({ text: response.data.text });
     } catch (err) {
-      console.log("Whisper error:", err.response?.data || err.message);
-      res.status(500).json({
+      console.log("FULL WHISPER ERROR:", {
+        message: err.message,
+        status: err.response?.status,
+        data: err.response?.data,
+      });
+
+      return res.status(500).json({
         error: "Transcription failed",
         detail: err.response?.data || err.message,
       });
