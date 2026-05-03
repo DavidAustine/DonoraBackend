@@ -18,8 +18,11 @@ const patientRequestSchema = new mongoose.Schema(
       required: true,
     },
 
-    // No default: "Point" — same reason as User.js
-    // coordinates are always provided explicitly when creating a request
+    // Optional: name/note about who the patient is (when requested by facility)
+    patientNote: {
+      type: String,
+    },
+
     location: {
       type: {
         type: String,
@@ -47,6 +50,21 @@ const patientRequestSchema = new mongoose.Schema(
     isEmergency: {
       type: Boolean,
       default: false,
+    },
+
+    // Who actually submitted this request (patient or bloodbank on behalf)
+    requestedByRole: {
+      type: String,
+      enum: ["patient", "bloodbank"],
+      default: "patient",
+    },
+
+    // If a blood bank/medical facility submitted this on behalf of a patient,
+    // store the BloodBank._id here so we can filter it out from that facility's
+    // Requests page (a facility should not see/accept its own requests).
+    requestedByFacility: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "BloodBank",
     },
 
     rejectedBy: [

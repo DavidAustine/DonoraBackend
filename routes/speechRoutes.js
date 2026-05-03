@@ -42,7 +42,9 @@ router.post(
       });
       form.append("model", "whisper-1");
 
-      console.log("OPENAI KEY EXISTS:", !!process.env.OPENAI_API_KEY);
+      console.log("OPENAI KEY EXISTS:", !!process.env.OPENAI_SECRET_KEY);
+      const stats = fs.statSync(filePath);
+      console.log("FILE SIZE:", stats.size);
       const response = await axios.post(
         "https://api.openai.com/v1/audio/transcriptions",
         form,

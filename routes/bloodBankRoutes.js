@@ -13,31 +13,52 @@ const verifyRole = (roles) => {
 };
 
 // ── Public ────────────────────────────────────────────────────────────────────
+
 // GET /bloodbank/nearby?lng=&lat=&radius=
 // Used by patient mobile app "Blood Bank" tab to find nearby blood banks.
-// Also used by blood bank web app to show peer banks on map (future).
 router.get("/nearby", bloodBankController.getNearbyBloodBanks);
 
+// GET /bloodbank/:id/stock
+// Public endpoint to view a specific blood bank's inventory.
+// Used by "Nearby Facilities" feature to check stock before contacting.
+router.get("/:id/stock", bloodBankController.getBloodBankStock);
+
+// ── Authenticated ─────────────────────────────────────────────────────────────
+
+// GET /bloodbank/nearby-with-stock?lng=&lat=&radius=
+// Returns nearby facilities WITH their stock levels attached.
+// Excludes the requesting user's own facility from results.
+router.get(
+  "/nearby-with-stock",
+  verifyJWT,
+  bloodBankController.getNearbyBloodBanksWithStock,
+);
+
 // ── Blood-bank-only ───────────────────────────────────────────────────────────
+
 router.post(
   "/stock",
   verifyJWT,
   verifyRole(["bloodbank"]),
-  bloodBankController.updateStock
+  bloodBankController.updateStock,
 );
 router.get(
   "/stock",
   verifyJWT,
   verifyRole(["bloodbank"]),
-  bloodBankController.getMyStock
+  bloodBankController.getMyStock,
 );
 router.post(
   "/fulfill/:id",
   verifyJWT,
   verifyRole(["bloodbank"]),
-  bloodBankController.fulfillRequest
+  bloodBankController.fulfillRequest,
 );
-router.post("/accept/:id", verifyJWT, bloodBankController.acceptPatientRequest);
+router.post(
+  "/accept/:id",
+  verifyJWT,
+  bloodBankController.acceptPatientRequest,
+);
 router.get("/me", verifyJWT, bloodBankController.getMyBloodBank);
 router.patch("/me", verifyJWT, bloodBankController.updateMyBloodBank);
 
