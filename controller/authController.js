@@ -14,6 +14,10 @@ const handleLogin = async (req, res, next) => {
       .json({ message: "Email and password are required." });
   }
 
+  /* if (typeof email !== "string") {
+    return res.status(400).json({ message: "Invalid email format" });
+  } */
+
   try {
     const foundUser = await User.findOne({ email });
     if (!foundUser) {
