@@ -1,25 +1,34 @@
 const nodemailer = require("nodemailer");
 
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: (process.env.EMAIL_PASS || "").replace(/\s+/g, ""),
-  },
-});
+const createTransporter = () => {
+  const user = process.env.EMAIL_USER;
+  const pass = (process.env.EMAIL_PASS || "").replace(/\s+/g, "");
+
+  if (!user || !pass) {
+    throw new Error("EMAIL_USER or EMAIL_PASS environment variable is missing");
+  }
+
+  return nodemailer.createTransport({
+    service: "gmail",
+    auth: { user, pass },
+  });
+};
 
 const sendOTPEmail = async (to, otp) => {
-  try {
-    const info = await transporter.sendMail({
-      from: `"Donora Blood" <${process.env.EMAIL_USER}>`,
-      to,
-      subject: "Your Password Reset OTP",
-      text: `Hello,\n\nYour OTP is: ${otp}\nIt expires in 10 minutes.\n\nIf you didn’t request this, ignore this email.\n\n-Blood Donation App Team`,
-    });
-    console.log("Email sent:", info.response);
-  } catch (error) {
-    console.error("Email sending error:", error.message);
-    throw new Error("Could not send email");
+  const transporter = createTransporter();
+
+  // Verify SMTP connection before attempting to send — surfaces the real error
+  await transporter.verify();
+
+  await transporter.sendMail({
+    from: `"Donora Blood" <${process.env.EMAIL_USER}>`,
+    to,
+    subject: "Your Password Reset OTP",
+    text: `Hello,\n\nYour OTP is: ${otp}\nIt expires in 10 minutes.\n\nIf you didn't request this, ignore this email.\n\n-Donora Blood Team`,
+  });
+
+  if (process.env.NODE_ENV !== "production") {
+    console.log("OTP email sent to:", to);
   }
 };
 
