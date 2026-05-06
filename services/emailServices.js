@@ -1,26 +1,28 @@
-const { Resend } = require("resend");
+const nodemailer = require("nodemailer");
+
+const transporter = nodemailer.createTransport({
+  host: "smtp.gmail.com",
+  port: 465,
+  secure: true, // important
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  },
+  connectionTimeout: 10000, // 10s
+});
 
 const sendOTPEmail = async (to, otp) => {
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) {
-    throw new Error("RESEND_API_KEY environment variable is missing");
-  }
-
-  const resend = new Resend(apiKey);
-
-  const { error } = await resend.emails.send({
-    from: "Donora Blood <onboarding@resend.dev>",
-    to,
-    subject: "Your Password Reset OTP",
-    text: `Hello,\n\nYour OTP is: ${otp}\nIt expires in 10 minutes.\n\nIf you didn't request this, ignore this email.\n\n-Donora Blood Team`,
-  });
-
-  if (error) {
-    throw new Error(`Email service error: ${error.message}`);
-  }
-
-  if (process.env.NODE_ENV !== "production") {
-    console.log("OTP email sent to:", to);
+  try {
+    const info = await transporter.sendMail({
+      from: `"Donora Blood" <${process.env.EMAIL_USER}>`,
+      to,
+      subject: "Your Password Reset OTP",
+      text: `Hello,\n\nYour OTP is: ${otp}\nIt expires in 10 minutes.\n\nIf you didn’t request this, ignore this email.\n\n-Blood Donation App Team`,
+    });
+    console.log("Email sent:", info.response);
+  } catch (error) {
+    console.error("FULL EMAIL ERROR:", error);
+    throw error;
   }
 };
 
