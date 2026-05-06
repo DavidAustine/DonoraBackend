@@ -6,7 +6,7 @@ const { sendOTPEmail } = require("../services/emailServices");
 const DonorProfile = require("../model/DonorProfile");
 
 const handleLogin = async (req, res, next) => {
-  const { email, password } = req.body;
+  const { email, password, role } = req.body;
 
   if (!email || !password) {
     return res
@@ -28,6 +28,12 @@ const handleLogin = async (req, res, next) => {
 
     if (!match) {
       return res.status(401).json({ message: "Invalid credentials." });
+    }
+
+    if (role && foundUser.role !== role) {
+      return res.status(403).json({
+        message: `Access denied. This login is for ${role} only.`,
+      });
     }
 
     const accessToken = jwt.sign(
@@ -282,10 +288,9 @@ const handleForgotPassword = async (req, res, next) => {
 
     await sendOTPEmail(email, otp);
 
-    if (process.env.NODE_ENV !== "production") console.log("OTP:", otp);
-
     res.json({ message: "OTP sent to email" });
   } catch (err) {
+    // Pass the real error (including SMTP details) to the error middleware
     next(err);
   }
 };
