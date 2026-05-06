@@ -18,8 +18,8 @@ const sendOTPEmail = async (to, otp) => {
     });
     console.log("Email sent:", info.response);
   } catch (error) {
-    console.error("FULL EMAIL ERROR:", error);
-    throw error;
+    console.error("Email sending error:", error.message);
+    throw new Error("Could not send email");
   }
 };
 
