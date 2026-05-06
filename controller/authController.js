@@ -286,9 +286,11 @@ const handleForgotPassword = async (req, res, next) => {
     user.resetPasswordExpires = Date.now() + 10 * 60 * 1000;
     await user.save();
 
-    await sendOTPEmail(email, otp);
+    sendOTPEmail(email, otp).catch((err) => {
+      console.error("OTP email failed:", err);
+    });
 
-    res.json({ message: "OTP sent to email" });
+    res.json({ message: "OTP is being sent" });
   } catch (err) {
     // Pass the real error (including SMTP details) to the error middleware
     next(err);
